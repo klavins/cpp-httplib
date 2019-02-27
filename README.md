@@ -1,3 +1,7 @@
+A Fork That Throws Exceptions
+===========
+For whatever reason, the original version of this library doesn't throw exceptions, but uses an old-style C way of dealing with errors, like returning NULL when something goes wrong. Here, I am beginning to add throws instead of returns when errors occur.
+
 cpp-httplib
 ===========
 
