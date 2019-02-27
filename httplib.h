@@ -5,6 +5,8 @@
 //  MIT License
 //
 
+// Extended to throw informative exceptions by Eric Klavins
+
 #ifndef CPPHTTPLIB_HTTPLIB_H
 #define CPPHTTPLIB_HTTPLIB_H
 
@@ -52,6 +54,7 @@ typedef SOCKET socket_t;
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <stdexcept>
 
 typedef int socket_t;
 #define INVALID_SOCKET (-1)
@@ -120,6 +123,22 @@ struct MultipartFile {
     size_t length = 0;
 };
 typedef std::multimap<std::string, MultipartFile> MultipartFiles;
+
+class Exception : public std::runtime_error {
+
+    public:
+    Exception(const std::string& what) : 
+        runtime_error(what), 
+        _what("HTTPLib Error: " + what) {}
+
+    const char* what() const throw (){
+        return _what.c_str();
+    }
+
+    private:
+    std::string _what;
+
+};
 
 struct Request {
     std::string    version;
@@ -587,7 +606,9 @@ socket_t create_socket(const char* host, int port, Fn fn, int socket_flags = 0)
     auto service = std::to_string(port);
 
     if (getaddrinfo(host, service.c_str(), &hints, &result)) {
-        return INVALID_SOCKET;
+        std::string s = "Could not determine address of ";
+        s = s + host + ". Check connection to Internet. Note: Addresses should not include http:// or trailing paths.";
+        throw(Exception(s));
     }
 
     for (auto rp = result; rp; rp = rp->ai_next) {
@@ -611,7 +632,8 @@ socket_t create_socket(const char* host, int port, Fn fn, int socket_flags = 0)
     }
 
     freeaddrinfo(result);
-    return INVALID_SOCKET;
+    throw(Exception("create_socket failed"));
+
 }
 
 inline void set_nonblocking(socket_t sock, bool nonblocking)
@@ -2009,7 +2031,7 @@ inline socket_t Client::create_client_socket() const
                 if (detail::is_connection_error() ||
                     !detail::wait_until_socket_is_ready(sock, timeout_sec_, 0)) {
                     detail::close_socket(sock);
-                    return false;
+                    throw(Exception("connection error"));
                 }
             }
 
@@ -2048,7 +2070,7 @@ inline bool Client::send(Request& req, Response& res)
 
     auto sock = create_client_socket();
     if (sock == INVALID_SOCKET) {
-        return false;
+        throw(Exception("Invalid Socket"));
     }
 
     return read_and_close_socket(sock, req, res);
